@@ -1,4 +1,5 @@
 using FionetixAPI.Data;
+using FionetixAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace FionetixAPI.Middleware;
@@ -73,14 +74,20 @@ public class FirebaseAuthMiddleware
 
             if (user == null)
             {
-                context.Response.StatusCode = 403;
-                await context.Response.WriteAsJsonAsync(new { error = "User not registered in the system." });
-                return;
+                // Auto-register new Firebase/Google users as Viewer
+                user = new AppUser
+                {
+                    FirebaseUid = uid,
+                    Email = email ?? uid,
+                    Role = "Viewer",
+                    CreatedAt = DateTime.UtcNow
+                };
+                db.AppUsers.Add(user);
+                await db.SaveChangesAsync();
             }
-
-            // Update FirebaseUid if it was a placeholder
-            if (user.FirebaseUid != uid)
+            else if (user.FirebaseUid != uid)
             {
+                // Update FirebaseUid if it was a placeholder
                 user.FirebaseUid = uid;
                 await db.SaveChangesAsync();
             }
