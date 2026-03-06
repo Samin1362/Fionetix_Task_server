@@ -7,13 +7,15 @@ public class FirebaseAuthMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<FirebaseAuthMiddleware> _logger;
-    private readonly bool _isDevelopment;
+    private readonly bool _allowDevAuth;
 
     public FirebaseAuthMiddleware(RequestDelegate next, ILogger<FirebaseAuthMiddleware> logger, IHostEnvironment env)
     {
         _next = next;
         _logger = logger;
-        _isDevelopment = env.IsDevelopment();
+        // Allow dev auth in Development OR when ENABLE_DEV_AUTH=true (for testing deployed APIs)
+        _allowDevAuth = env.IsDevelopment()
+            || string.Equals(Environment.GetEnvironmentVariable("ENABLE_DEV_AUTH"), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task InvokeAsync(HttpContext context, AppDbContext db)
@@ -27,7 +29,7 @@ public class FirebaseAuthMiddleware
         }
 
         // Development bypass: X-Dev-Email header for testing without Firebase
-        if (_isDevelopment && context.Request.Headers.TryGetValue("X-Dev-Email", out var devEmail))
+        if (_allowDevAuth && context.Request.Headers.TryGetValue("X-Dev-Email", out var devEmail))
         {
             var devUser = await db.AppUsers.FirstOrDefaultAsync(u => u.Email == devEmail.ToString());
             if (devUser != null)
@@ -85,7 +87,7 @@ public class FirebaseAuthMiddleware
             context.Response.StatusCode = 401;
             await context.Response.WriteAsJsonAsync(new { error = "Invalid or expired token." });
         }
-        catch (Exception ex) when (_isDevelopment)
+        catch (Exception ex) when (_allowDevAuth)
         {
             // In dev, if Firebase is not initialized, allow X-Dev-Email fallback only
             _logger.LogWarning("Firebase auth failed: {Message}. Use X-Dev-Email header for dev testing.", ex.Message);
