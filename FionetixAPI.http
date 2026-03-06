@@ -1,0 +1,6 @@
+@FionetixAPI_HostAddress = http://localhost:5221
+
+GET {{FionetixAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
