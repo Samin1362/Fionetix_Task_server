@@ -68,10 +68,32 @@ var firebaseProjectId = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID"
     ?? builder.Configuration["Firebase:ProjectId"];
 if (!string.IsNullOrEmpty(firebaseProjectId))
 {
-    FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
+    try
     {
-        ProjectId = firebaseProjectId
-    });
+        // Try service account JSON from env var first (for deployed environments)
+        var serviceAccountJson = Environment.GetEnvironmentVariable("FIREBASE_SERVICE_ACCOUNT_JSON");
+        Google.Apis.Auth.OAuth2.GoogleCredential credential;
+
+        if (!string.IsNullOrEmpty(serviceAccountJson))
+        {
+            credential = Google.Apis.Auth.OAuth2.GoogleCredential.FromJson(serviceAccountJson);
+        }
+        else
+        {
+            // Fallback: use application default or none (works locally with just ProjectId for token verification)
+            credential = Google.Apis.Auth.OAuth2.GoogleCredential.GetApplicationDefault();
+        }
+
+        FirebaseAdmin.FirebaseApp.Create(new FirebaseAdmin.AppOptions
+        {
+            ProjectId = firebaseProjectId,
+            Credential = credential,
+        });
+    }
+    catch
+    {
+        // If no credentials available, skip Firebase init — middleware will use dev-mode fallback
+    }
 }
 
 var app = builder.Build();

@@ -56,7 +56,15 @@ public class FirebaseAuthMiddleware
         try
         {
             // Verify Firebase token
-            var decodedToken = await FirebaseAdmin.Auth.FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(token);
+            var firebaseAuth = FirebaseAdmin.Auth.FirebaseAuth.DefaultInstance;
+            if (firebaseAuth == null)
+            {
+                context.Response.StatusCode = 401;
+                await context.Response.WriteAsJsonAsync(new { error = "Firebase authentication is not configured on the server." });
+                return;
+            }
+
+            var decodedToken = await firebaseAuth.VerifyIdTokenAsync(token);
             var uid = decodedToken.Uid;
             var email = decodedToken.Claims.TryGetValue("email", out var emailClaim) ? emailClaim.ToString() : null;
 
